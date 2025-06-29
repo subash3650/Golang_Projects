@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Task struct {
@@ -15,6 +19,11 @@ type Task struct {
 	Completed   bool      `json:"completed"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+var (
+	Client     *mongo.Client
+	Collection *mongo.Collection
+)
 
 var tasks = []Task{}
 
@@ -28,12 +37,26 @@ func createTask(c *gin.Context) {
 	newTask.CreatedAt = time.Now()
 	newTask.Completed = false
 
-	tasks = append(tasks, newTask)
+	_, err := Collection.InsertOne(context.TODO(), newTask)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		return
+	}
+
 	c.JSON(http.StatusCreated, newTask)
 }
 
 func getTasks(c *gin.Context) {
+	cursor, err := Collection.FindOne(context.TODO(), bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve tasks"})
+		return
+	}
+	defer cursor.Close(context.TODO())
+	var tasks []Task
+
 	c.JSON(http.StatusOK, tasks)
+
 }
 
 func getTaskByID(c *gin.Context) {
@@ -80,6 +103,16 @@ func deleteTask(c *gin.Context) {
 }
 
 func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var err error
+	Client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb+srv://subashprasanna66:subash123@cluster0.fpeaifj.mongodb.net/"))
+	if err != nil {
+		panic(err)
+	}
+	Collection = Client.Database("taskTracker").Collection("tasks")
+
 	r := gin.Default()
 
 	r.POST("/tasks", createTask)
