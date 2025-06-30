@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
+
+	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -25,7 +29,7 @@ var (
 	Collection *mongo.Collection
 )
 
-var tasks = []Task{}
+// var tasks = []Task{}
 
 func createTask(c *gin.Context) {
 	var newTask Task
@@ -47,67 +51,97 @@ func createTask(c *gin.Context) {
 }
 
 func getTasks(c *gin.Context) {
-	cursor, err := Collection.FindOne(context.TODO(), bson.M{})
+	cursor, err := Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve tasks"})
 		return
 	}
 	defer cursor.Close(context.TODO())
-	var tasks []Task
 
+	var tasks []Task
+	if err = cursor.All(context.TODO(), &tasks); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse tasks"})
+		return
+	}
 	c.JSON(http.StatusOK, tasks)
 
 }
 
 func getTaskByID(c *gin.Context) {
 	id := c.Param("id")
-	for _, t := range tasks {
-		if t.ID == id {
-			c.JSON(http.StatusOK, t)
-			return
-		}
+	var task Task
+	err := Collection.FindOne(context.TODO(), bson.M{"id": id}).Decode(&task)
+	if err == mongo.ErrNoDocuments {
+		c.JSON(http.StatusNotFound, gin.H{"message": "User not found"})
+		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"message": "task not found"})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to retrieve the user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, task)
+
 }
 
 func updateTask(c *gin.Context) {
 	id := c.Param("id")
 	var updated Task
+
 	if err := c.BindJSON(&updated); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	for i, t := range tasks {
-		if t.ID == id {
-			tasks[i].Title = updated.Title
-			tasks[i].Description = updated.Description
-			tasks[i].Completed = updated.Completed
-			c.JSON(http.StatusOK, tasks[i])
-			return
-		}
+	update := bson.M{
+		"$set": bson.M{
+			"title":       updated.Title,
+			"description": updated.Description,
+			"completed":   updated.Completed,
+		},
 	}
-	c.JSON(http.StatusNotFound, gin.H{"message": "task not found"})
+
+	res, err := Collection.UpdateOne(context.TODO(), bson.M{"id": id}, update)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to update the task"})
+		return
+	}
+
+	if res.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "task not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"Message": "User updated successfully"})
 }
 
 func deleteTask(c *gin.Context) {
 	id := c.Param("id")
-	for i, t := range tasks {
-		if t.ID == id {
-			tasks = append(tasks[:i], tasks[i+1:]...)
-			c.Status(http.StatusNoContent)
-			return
-		}
+	res, err := Collection.DeleteOne(context.TODO(), bson.M{"id": id})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete task"})
+		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"message": "task not found"})
+	if res.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "task not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	con := godotenv.Load()
+	if con != nil {
+		log.Fatal("error loading .env file")
+	}
+	uri := os.Getenv("MONGO_URI")
+
 	var err error
-	Client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb+srv://subashprasanna66:subash123@cluster0.fpeaifj.mongodb.net/"))
+	Client, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
 	}
