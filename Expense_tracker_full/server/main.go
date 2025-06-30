@@ -71,7 +71,6 @@ func createExpense(c *gin.Context) {
 	}
 	newExpense.Date = time.Now()
 
-	// Do NOT set ID, let MongoDB generate it
 	doc := bson.M{
 		"title":       newExpense.Title,
 		"amount":      newExpense.Amount,
@@ -86,7 +85,6 @@ func createExpense(c *gin.Context) {
 		return
 	}
 
-	// Safely get the inserted ID
 	oid, ok := res.InsertedID.(primitive.ObjectID)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get inserted ID"})
