@@ -1,6 +1,12 @@
 package main
 
-// "fmt"
+import (
+	// "fmt"
+	// "log"
+)
+
+// import (
+// "fmt")
 
 // "errors"
 // "strings"
@@ -91,23 +97,29 @@ func main() {
 	// 	fmt.Println(val)
 	// }
 
-	// 	mychannel := make(chan string)
+	// mychannel := make(chan string)
 
-	// 	go func() {
-	// 		mychannel <- "data"
-	// 	}()
-	// 	msg := <-mychannel
-	// 	fmt.Println(msg)
+	// go func() {
+	// 	mychannel <- "data"
+	// }()
+	// msg := <-mychannel
+	// fmt.Println(msg)
 
-	// 	nums := []int{1, 2, 3, 4, 5}
-	// 	datachannel := slicetoChannel(nums)
-	// 	final := sq(datachannel)
-	// 	for n := range final {
-	// 		fmt.Println(n)
-	// 	}
+	// nums := []int{1, 2, 3, 4, 5}
+	// datachannel := slicetoChannel(nums)
+	// final := sq(datachannel)
+	// for n := range final {
+	// 	fmt.Println(n)
+	// }
+	// log.SetPrefix("Greeting: ")
+	// log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
+	// message, err := Greeting("")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Println(message)
 
-	
 }
 
 // func slicetoChannel(nums []int) <-chan int {
