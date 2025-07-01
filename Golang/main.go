@@ -1,7 +1,10 @@
 package main
 
 import (
-	// "fmt"
+	"bufio"
+	"fmt"
+	"log"
+	"os"
 	// "log"
 )
 
@@ -120,6 +123,26 @@ func main() {
 	// }
 	// fmt.Println(message)
 
+	// entry, err := os.ReadFile("Welcome.go")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Println(string(entry))
+
+	file, err := os.Open("Welcome.go")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // func slicetoChannel(nums []int) <-chan int {

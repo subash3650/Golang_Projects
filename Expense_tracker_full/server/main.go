@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"gin-app/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type SignupUser struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Email     string             `bson:"email" json:"email"`
+	Password  string             `bson:"password" json:"password"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
+type LoginUser struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Password  string             `bson:"password" json:"password"`
+	Email     string             `bson:"email" json:"email"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
 type Expense struct {
 	ID          string    `json:"id,omitempty"`
 	Title       string    `json:"title" bson:"title"`
@@ -26,9 +43,10 @@ type Expense struct {
 }
 
 var (
-	client     *mongo.Client
-	collection *mongo.Collection
-	ctx        = context.Background()
+	client             *mongo.Client
+	collection         *mongo.Collection
+	UserDataCollection *mongo.Collection
+	ctx                = context.Background()
 )
 
 func main() {
@@ -43,7 +61,7 @@ func main() {
 		log.Fatal(err)
 	}
 	collection = client.Database("Expense_Tracker").Collection("expense_data")
-
+	UserDataCollection = client.Database("Expense_Tracker").Collection("user_data")
 	r := gin.Default()
 	r.Use(cors.Default())
 
@@ -56,7 +74,38 @@ func main() {
 	r.PUT("/expense/:id", updateExpense)
 	r.DELETE("/expense/:id", deleteExpense)
 	r.GET("/categories", getCategories)
-	r.Run(":8080")
+	r.POST("/login", Login)
+	r.POST("/signup", middleware.AuthMiddleware(UserDataCollection), SignupHandler)
+	r.Run(":5000")
+}
+
+func Login(c *gin.Context) {
+	var user LoginUser
+	if err := c.BindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+}
+
+func SignupHandler(c *gin.Context) {
+	email, _ := c.Get("email")
+	password, _ := c.Get("password")
+	if email == nil || password == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email and password are required"})
+		return
+	}
+	_, err := UserDataCollection.InsertOne(ctx, bson.M{
+		"email":      email,
+		"password":   password,
+		"created_at": time.Now(),
+		"updated_at": time.Now(),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Signup successful"})
 }
 
 func createExpense(c *gin.Context) {
